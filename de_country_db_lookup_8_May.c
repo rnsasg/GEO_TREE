@@ -14,10 +14,10 @@
 
 
 #define LOG_LEVEL_EMERGENCY   0
-#define LOG_LEVEL_VERBOSE     1
+#define LOG_LEVEL_VERBOSE     0 
 #define LOG_LEVEL_ERR         2
 #define LOG_LEVEL_INFO        3
-#define LOG_LEVEL_DEBUG       4
+#define LOG_LEVEL_DEBUG       0 
 #define LOG_LEVEL_DEBUG2      5
 
 typedef enum _bool {
@@ -333,72 +333,93 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 	return node;
 }
 
+int common_seq_length(unsigned int start_ip, unsigned int end_ip)
+{
+
+	int depth=0;
+	int common_seq_len=0;
+	for (depth = 31; depth >= 0; depth--)
+	{
+		if ( ( start_ip  & (1 << depth)) == ( end_ip  & (1 << depth)) )
+			common_seq_len ++;
+		else
+			break;
+	}
+
+return common_seq_len;
+}
 de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 {
 	int depth=0;
 	de_tree_node_t *ptr=NULL;
 	de_tree_node_t *last_one_ref=NULL;
-	int prefix_len=0;
 	int last_prefix_len=0;
 	unsigned int ipnum=record.start_ip;
+	unsigned int start_ipnum=record.start_ip;
+	unsigned int end_ipnum=record.end_ip;
+	int common_seq_len= common_seq_length(start_ipnum,end_ipnum);
 	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u End_IP: %u Country Code : %d\n",__FUNCTION__,record.start_ip,record.end_ip,record.country_code);
 	if(!root)
 	{
 		LOG(LOG_LEVEL_EMERGENCY,"root is not avialable , allocating root tree node \n");
 		root=alloc_tree_root_node();			
 	}
+	LOG(LOG_LEVEL_DEBUG,"\n In %s : Common Sequence length- %d\n",__FUNCTION__,common_seq_len);
 	ptr=root;
-	for (depth = 31; depth >= 0; depth--)
+	for (depth = 31; depth >= (32 - common_seq_len ); depth--)
 	{	
 		if (ipnum & (1 << depth))
 	 	{
-			if(ptr->right)
+			LOG(LOG_LEVEL_DEBUG,"Right Sub Tree , Depth is %d Common Sequence length- %d  \n",(32-depth),common_seq_len);
+			if(ptr->right == NULL )
 			{
-				ptr=ptr->right;
-			}
-			else
-			{
+				LOG(LOG_LEVEL_DEBUG,"Allocate right  node\n");
 				ptr->right=insertTreeNode(1);
-				ptr=ptr->right;
 			}
-			last_one_ref=ptr;
-			last_prefix_len=prefix_len;
+			ptr=ptr->right;
 	 	}
 	 	else
 	 	{
-			if(ptr->left)
-                        {
-                                ptr=ptr->left;
-                        }
-                        else
-                        {
-                                ptr->left=insertTreeNode(0);
-                                ptr=ptr->left;
-                        }
+			LOG(LOG_LEVEL_DEBUG,"Left Sub Tree  Depth is %d Common Sequence length- %d \n",(32-depth),common_seq_len);
+			if(ptr->left == NULL)
+			{
+				LOG(LOG_LEVEL_DEBUG,"Allocate left node\n");
+                        	ptr->left=insertTreeNode(0);
+			}
+                        ptr=ptr->left;
 	
 	 	}
-		prefix_len++;	
 	}
+	 LOG(LOG_LEVEL_DEBUG,"In %s: After for loop , tree depth %d , prefix len %d \n",__FUNCTION__,depth , common_seq_len);
 	/*Insert Node Record */
-	last_one_ref->node_marker = PREFIX_MATCH;
-	last_one_ref=insert_de_record_node(last_one_ref,prefix_len,record);	
+	ptr->node_marker = PREFIX_MATCH;
+	ptr=insert_de_record_node(ptr,common_seq_len,record);	
 	return root;
 }
-void searchRecord(de_tree_node_t *node,unsigned int ipnum)
+Bool searchRecord(de_tree_node_t *node,unsigned int ipnum)
 {
 	int count=1;
 	de_data_row_t *tmpPtr=NULL;
 	Bool found=false;
 	if(node->node_marker == PREFIX_MATCH)
 	{
-                //if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL){}
+		LOG(LOG_LEVEL_VERBOSE,"\n In %s : Prefix Match outer if block\n",__func__);
+                if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL)
        		{
-			LOG(LOG_LEVEL_INFO,"\n In %s : DR list node count is %u \n",__FUNCTION__,node->DR_List->total_no_of_node);
+			LOG(LOG_LEVEL_VERBOSE,"\n In %s : DR list node count is %u \n",__FUNCTION__,node->DR_List->total_no_of_node);
                         tmpPtr=node->DR_List->head;
                         while(tmpPtr)
 			{
+				LOG(LOG_LEVEL_VERBOSE,"\n In %s : Prefix Match while start loop \n",__func__);
+				LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Start ip : %u ",count,tmpPtr->start_ip);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  End ip : %u ",count,tmpPtr->end_ip);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Country Code (Num): %u ",count,tmpPtr->country_code);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Three letter country code : %s, Country Full Name : %s  ",count,   GeoIP_country_code[tmpPtr->country_code],GeoIP_country_name[tmpPtr->country_code]);
+				LOG(LOG_LEVEL_VERBOSE,"\n In %s : Prefix Match while start end \n",__func__);
+
 				if(ipnum>=tmpPtr->start_ip && ipnum<=tmpPtr->end_ip)
 				{
+					LOG(LOG_LEVEL_EMERGENCY,"\n In %s : Prefix Match inner if block\n",__func__);
                        			LOG(LOG_LEVEL_EMERGENCY,"\n######## In %s : Record Values Are #######\n",__FUNCTION__);
                         		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Start ip : %u ",count,tmpPtr->start_ip);
                         		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  End ip : %u ",count,tmpPtr->end_ip);
@@ -413,14 +434,14 @@ void searchRecord(de_tree_node_t *node,unsigned int ipnum)
                 }
 
 	}
-	if(found == false )
-		LOG(LOG_LEVEL_EMERGENCY,"In %s : Record does not exist ",__FUNCTION__);	
+	return found;
 }
 void searchIP(de_tree_node_t *root,unsigned int ipnum)
 {
 	int depth=0;
         de_tree_node_t *ptr=NULL;
         de_tree_node_t *last_one_ref=NULL;
+	Bool found=false;
         if(!root)
         {
                 LOG(LOG_LEVEL_EMERGENCY,"In %s : root is not avialable, Exiting ....\n",__FUNCTION__);
@@ -436,10 +457,14 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
                 	{
                         	if(ptr->right)
                         	{
+					LOG(LOG_LEVEL_VERBOSE,"In %s : Right Branch %d\n",__func__,depth);
                                 	ptr=ptr->right;
 					if(ptr->node_marker == PREFIX_MATCH)
 					{
-                        			last_one_ref=ptr;
+						LOG(LOG_LEVEL_VERBOSE,"In %s : Prefix match tree depth (%d) found %d\n",__func__,depth,   found);
+						found = searchRecord(ptr,ipnum);
+						if(true == found)
+							break;
 					}
 				}
                 	}
@@ -447,6 +472,7 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
                 	{
                         	if(ptr->left)
                         	{
+					LOG(LOG_LEVEL_VERBOSE,"In %s : Left Branch %d\n",__func__,depth);
                                 	ptr=ptr->left;
                         	}
 
@@ -455,14 +481,10 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
 		else
 		{
 			LOG(LOG_LEVEL_EMERGENCY,"In %s :IP is not in the tree\n",__func__);
-			break;
-			
 		}
         }
 	/* Now search through DR record list */
-	if(last_one_ref)
-		searchRecord(last_one_ref,ipnum);
-	else
+	if(found == false )
 		LOG(LOG_LEVEL_EMERGENCY,"In %s : reference was not found....\n",__FUNCTION__);
 		
 }
@@ -697,6 +719,7 @@ void tree_operations(void)
 	clock_t t;
 	double time_taken;
 	char filename[100];
+	//de_data_row_t temp = {3749843968,3749844991,16};
         do{
 		LOG(LOG_LEVEL_EMERGENCY,"\n\n\n ######################### Main Menu ################# :\n");
 		LOG(LOG_LEVEL_EMERGENCY," 1. Input CSV file 	  :\n");
@@ -712,7 +735,9 @@ void tree_operations(void)
                 scanf("%d",&ch);
                 switch(ch)
                 {
-			case 1: printf("--------- Insert using CSV file ---------------\n");
+			case 1:
+        			//root=insertIP(root,temp);
+				printf("--------- Insert using CSV file ---------------\n");
                                 LOG(LOG_LEVEL_EMERGENCY,"Enter a CSV file name or full path of CSV file :");
                                 scanf("%s",filename);
 				t = clock();
@@ -825,10 +850,12 @@ void total_heap_memory_allocation()
 }
 int main(void)
 {
-	 tree_operations();
+	tree_operations();
 //	printf("List Node size %d Linked List Size %d TreeNode %d ",sizeof(de_data_row_t),sizeof(de_data_record_list_t),sizeof(de_tree_node_t));
 	//country_code_to_num();
-
+//	printf(" Common prefix length %d ",common_seq_length(16909312,16941055));
+//	de_data_row_t temp = {3749843968,3749844991,16};
+//	root=insertIP(root,temp);
         return 0;
 }
 

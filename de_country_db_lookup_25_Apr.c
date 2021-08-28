@@ -37,116 +37,7 @@ int log_level = 0;
 			printf(fmt, ## args);\
 	}while(0)							
 
-#define MAX_GEO_LOCS            253
 
-static const char GeoIP_country_code[MAX_GEO_LOCS][3] = {
-    "--",
-    "AP","EU","AD","AE","AF","AG","AI","AL","AM","AN",
-    "AO","AQ","AR","AS","AT","AU","AW","AZ","BA","BB",
-    "BD","BE","BF","BG","BH","BI","BJ","BM","BN","BO",
-    "BR","BS","BT","BV","BW","BY","BZ","CA","CC","CD",
-    "CF","CG","CH","CI","CK","CL","CM","CN","CO","CR",
-    "CU","CV","CX","CY","CZ","DE","DJ","DK","DM","DO",
-    "DZ","EC","EE","EG","EH","ER","ES","ET","FI","FJ",
-    "FK","FM","FO","FR","FX","GA","GB","GD","GE","GF",
-    "GH","GI","GL","GM","GN","GP","GQ","GR","GS","GT",
-    "GU","GW","GY","HK","HM","HN","HR","HT","HU","ID",
-    "IE","IL","IN","IO","IQ","IR","IS","IT","JM","JO",
-    "JP","KE","KG","KH","KI","KM","KN","KP","KR","KW",
-    "KY","KZ","LA","LB","LC","LI","LK","LR","LS","LT",
-    "LU","LV","LY","MA","MC","MD","MG","MH","MK","ML",
-    "MM","MN","MO","MP","MQ","MR","MS","MT","MU","MV",
-    "MW","MX","MY","MZ","NA","NC","NE","NF","NG","NI",
-    "NL","NO","NP","NR","NU","NZ","OM","PA","PE","PF",
-    "PG","PH","PK","PL","PM","PN","PR","PS","PT","PW",
-    "PY","QA","RE","RO","RU","RW","SA","SB","SC","SD",
-    "SE","SG","SH","SI","SJ","SK","SL","SM","SN","SO",
-    "SR","ST","SV","SY","SZ","TC","TD","TF","TG","TH",
-    "TJ","TK","TM","TN","TO","TL","TR","TT","TV","TW",
-    "TZ","UA","UG","UM","US","UY","UZ","VA","VC","VE",
-    "VG","VI","VN","VU","WF","WS","YE","YT","RS","ZA",
-    "ZM","ME","ZW","A1","A2","O1","AX","GG","IM","JE",
-    "BL","MF"
-};
-static const char * GeoIP_country_name[MAX_GEO_LOCS] = {
-    "N/A", "Asia/Pacific Region", "Europe", "Andorra",
-    "United Arab Emirates", "Afghanistan", "Antigua and Barbuda",
-    "Anguilla", "Albania", "Armenia", "Netherlands Antilles",
-    "Angola", "Antarctica", "Argentina", "American Samoa", "Austria",
-    "Australia", "Aruba", "Azerbaijan", "Bosnia and Herzegovina",
-    "Barbados", "Bangladesh", "Belgium", "Burkina Faso", "Bulgaria",
-    "Bahrain", "Burundi", "Benin", "Bermuda", "Brunei Darussalam",
-    "Bolivia", "Brazil", "Bahamas", "Bhutan", "Bouvet Island",
-    "Botswana", "Belarus", "Belize", "Canada",
-    "Cocos (Keeling) Islands",
-    "Congo, The Democratic Republic of the",
-    "Central African Republic", "Congo", "Switzerland",
-    "Cote D'Ivoire", "Cook Islands", "Chile", "Cameroon", "China",
-    "Colombia", "Costa Rica", "Cuba", "Cape Verde",
-    "Christmas Island", "Cyprus", "Czech Republic", "Germany",
-    "Djibouti", "Denmark", "Dominica", "Dominican Republic",
-    "Algeria", "Ecuador", "Estonia", "Egypt", "Western Sahara",
-    "Eritrea", "Spain", "Ethiopia", "Finland","Fiji",
-    "Falkland Islands (Malvinas)", "Micronesia, Federated States of",
-    "Faroe Islands", "France", "France, Metropolitan", "Gabon",
-    "United Kingdom", "Grenada", "Georgia", "French Guiana", "Ghana",
-    "Gibraltar", "Greenland", "Gambia", "Guinea","Guadeloupe",
-    "Equatorial Guinea", "Greece",
-    "South Georgia and the South Sandwich Islands", "Guatemala",
-    "Guam", "Guinea-Bissau", "Guyana", "Hong Kong",
-    "Heard Island and McDonald Islands", "Honduras", "Croatia",
-    "Haiti", "Hungary", "Indonesia", "Ireland", "Israel", "India",
-    "British Indian Ocean Territory", "Iraq",
-    "Iran, Islamic Republic of", "Iceland", "Italy", "Jamaica",
-    "Jordan", "Japan", "Kenya", "Kyrgyzstan", "Cambodia", "Kiribati",
-    "Comoros", "Saint Kitts and Nevis",
-    "Korea, Democratic People's Republic of", "Korea, Republic of",
-    "Kuwait", "Cayman Islands", "Kazakhstan",
-    "Lao People's Democratic Republic", "Lebanon", "Saint Lucia",
-    "Liechtenstein", "Sri Lanka", "Liberia", "Lesotho", "Lithuania",
-    "Luxembourg", "Latvia", "Libyan Arab Jamahiriya", "Morocco",
-    "Monaco", "Moldova, Republic of", "Madagascar",
-    "Marshall Islands", "Macedonia", "Mali", "Myanmar", "Mongolia",
-    "Macau", "Northern Mariana Islands", "Martinique", "Mauritania",
-    "Montserrat", "Malta", "Mauritius", "Maldives", "Malawi",
-    "Mexico", "Malaysia", "Mozambique", "Namibia", "New Caledonia",
-    "Niger", "Norfolk Island", "Nigeria", "Nicaragua", "Netherlands",
-    "Norway", "Nepal", "Nauru", "Niue", "New Zealand", "Oman",
-    "Panama", "Peru", "French Polynesia", "Papua New Guinea",
-    "Philippines", "Pakistan", "Poland", "Saint Pierre and Miquelon",
-  "Pitcairn Islands", "Puerto Rico", "Palestinian Territory", "Portugal",
-    "Palau", "Paraguay", "Qatar", "Reunion", "Romania",
-    "Russian Federation", "Rwanda", "Saudi Arabia",
-    "Solomon Islands", "Seychelles", "Sudan", "Sweden", "Singapore",
-    "Saint Helena", "Slovenia", "Svalbard and Jan Mayen", "Slovakia",
-    "Sierra Leone", "San Marino", "Senegal", "Somalia", "Suriname",
-    "Sao Tome and Principe", "El Salvador", "Syrian Arab Republic",
-    "Swaziland", "Turks and Caicos Islands", "Chad",
-    "French Southern Territories", "Togo", "Thailand", "Tajikistan",
-    "Tokelau", "Turkmenistan", "Tunisia", "Tonga", "Timor-Leste",
-    "Turkey", "Trinidad and Tobago", "Tuvalu", "Taiwan",
-    "Tanzania, United Republic of", "Ukraine", "Uganda",
-    "United States Minor Outlying Islands", "United States",
-    "Uruguay", "Uzbekistan", "Holy See (Vatican City State)",
-    "Saint Vincent and the Grenadines", "Venezuela",
-    "Virgin Islands, British", "Virgin Islands, U.S.", "Vietnam",
-    "Vanuatu", "Wallis and Futuna", "Samoa", "Yemen", "Mayotte", "Serbia",
-    "South Africa", "Zambia", "Montenegro", "Zimbabwe",
-    "Anonymous Proxy", "Satellite Provider", "Other",
-    "Aland Islands", "Guernsey", "Isle of Man","Jersey",
-    "Saint Barthelemy", "Saint Martin"
-};
-
-short country_code_to_num(char *code)
-{
-	for(int i=1;i<MAX_GEO_LOCS;i++)
-	{
-		//printf("\n Country Code %s",GeoIP_country_code[i]);
-		if(strncasecmp(GeoIP_country_code[i],code,3)== 0)
-				return i;
-	}
-	return -1;
-}
 void set_loglevel(int level)
 {
 	if ( (level >=LOG_LEVEL_EMERGENCY ) && (level <=LOG_LEVEL_DEBUG2 ))
@@ -195,8 +86,7 @@ typedef struct _de_data_row_s
 {
         unsigned int start_ip;
         unsigned int end_ip;
-        //char three_letter_cn_name[4];
-	short country_code;
+        char three_letter_cn_name[4];
         struct _de_data_row_s *next;
 }__attribute__((packed)) de_data_row_t;
 
@@ -213,9 +103,9 @@ typedef struct _de_tree_node_s
 	struct _de_tree_node_s *left;
 	struct _de_tree_node_s *right;
         // node_bit will have value either '0' or '1'
-        unsigned int node_bit: 1;
+        unsigned int node_bit;// : 1;
         // node marker will indicate that a prefix match is available at this node
-        unsigned int node_marker: 1;
+        unsigned int node_marker;//: 1;
         de_data_record_list_t *DR_List;
 }__attribute__((packed)) de_tree_node_t;
 
@@ -285,9 +175,11 @@ de_tree_node_t *insertTreeNode(int data)
 
 de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_len,de_data_row_t record)
 {
+	unsigned int start_ip=0,end_ip=0;
+	char three_letter_cn_name[4];
 	de_data_row_t *tmpPtr=NULL;
 	de_data_row_t *newNode=NULL;
-	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u \t End_IP: %u \t Country Code %d\n",__FUNCTION__,record.start_ip,record.end_ip,record.country_code); 
+	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u \t End_IP: %u \t Country Name: %s \n",__FUNCTION__,record.start_ip,record.end_ip,record.three_letter_cn_name); 
 	if(node->DR_List == NULL)
 	{
 		node->DR_List=newDRList();	
@@ -299,10 +191,9 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 		node->DR_List->total_no_of_node++;
 		
 		newNode=newDataRCNode();
-		newNode->start_ip = record.start_ip;
-		newNode->end_ip = record.end_ip;
-		newNode->country_code = record.country_code;
-	//	strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
+		newNode->start_ip=record.start_ip;
+		newNode->end_ip=record.end_ip;
+		strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
 		node->DR_List->head=newNode;
 		node->DR_List->tail=newNode;
 	}
@@ -317,8 +208,7 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 			node->DR_List->total_no_of_node++;
 			newNode->start_ip=record.start_ip;
                 	newNode->end_ip=record.end_ip;
-			newNode->country_code = record.country_code;
-                	//strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
+                	strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
 			if(tmpPtr)
 			{
 				tmpPtr->next=newNode;
@@ -340,8 +230,9 @@ de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 	de_tree_node_t *last_one_ref=NULL;
 	int prefix_len=0;
 	int last_prefix_len=0;
+	int ret=0;
 	unsigned int ipnum=record.start_ip;
-	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u End_IP: %u Country Code : %d\n",__FUNCTION__,record.start_ip,record.end_ip,record.country_code);
+	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u End_IP: %u Country Name: %s \n",__FUNCTION__,record.start_ip,record.end_ip,record.three_letter_cn_name);
 	if(!root)
 	{
 		LOG(LOG_LEVEL_EMERGENCY,"root is not avialable , allocating root tree node \n");
@@ -391,7 +282,7 @@ void searchRecord(de_tree_node_t *node,unsigned int ipnum)
 	Bool found=false;
 	if(node->node_marker == PREFIX_MATCH)
 	{
-                //if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL){}
+                if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL){}
        		{
 			LOG(LOG_LEVEL_INFO,"\n In %s : DR list node count is %u \n",__FUNCTION__,node->DR_List->total_no_of_node);
                         tmpPtr=node->DR_List->head;
@@ -402,8 +293,7 @@ void searchRecord(de_tree_node_t *node,unsigned int ipnum)
                        			LOG(LOG_LEVEL_EMERGENCY,"\n######## In %s : Record Values Are #######\n",__FUNCTION__);
                         		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Start ip : %u ",count,tmpPtr->start_ip);
                         		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  End ip : %u ",count,tmpPtr->end_ip);
-					LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Country Code (Num): %u ",count,tmpPtr->country_code);
-                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Three letter country code : %s, Country Full Name : %s  ",count,GeoIP_country_code[tmpPtr->country_code],GeoIP_country_name[tmpPtr->country_code]);
+                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Three letter country code : %s ",count,tmpPtr->three_letter_cn_name);
 						found=true;
 						break;
 				}
@@ -421,6 +311,7 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
 	int depth=0;
         de_tree_node_t *ptr=NULL;
         de_tree_node_t *last_one_ref=NULL;
+        int ret=0;
         if(!root)
         {
                 LOG(LOG_LEVEL_EMERGENCY,"In %s : root is not avialable, Exiting ....\n",__FUNCTION__);
@@ -547,13 +438,13 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 	    row++;
 	    char* value = strtok(buffer, ";");
 	    flagInsert=true;
-	    LOG(LOG_LEVEL_VERBOSE,"\nRow :- %u  ",row);
+	    LOG(LOG_LEVEL_VERBOSE,"Row :- %u  ",row);
 	    while (value) 
 	    {
 		if(column == 0)
 		{
 			temp.start_ip=atoi(value);
-			LOG(LOG_LEVEL_VERBOSE," Start_IP : %u  ",temp.start_ip);
+			LOG(LOG_LEVEL_VERBOSE,"Start_IP : %u  ",temp.start_ip);
 			if(temp.start_ip == 0)
 			{
 				flagInsert=false;
@@ -563,7 +454,7 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 		if(column == 1)
 		{
 			temp.end_ip=atoi(value);
-			LOG(LOG_LEVEL_VERBOSE," End IP : %u   ",temp.end_ip);
+			LOG(LOG_LEVEL_VERBOSE,"End IP : %u   ",temp.end_ip);
 			if(temp.end_ip == 0)
 			{
 				flagInsert=false;
@@ -572,16 +463,13 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 		}
 		if(column == 2)
 		{
-			//strncpy(temp.three_letter_cn_name,value,sizeof(value));
-			//LOG(LOG_LEVEL_VERBOSE,"Country code : %s   ",value);
-			temp.country_code = country_code_to_num (value);
-		/*	if(temp.country_code == -1)
+			strncpy(temp.three_letter_cn_name,value,sizeof(value));
+			LOG(LOG_LEVEL_VERBOSE,"Country code : %s   ",temp.three_letter_cn_name);
+			if(temp.three_letter_cn_name == 0)
 			{
 				flagInsert=false;
 				break;
-			}*/
-			LOG(LOG_LEVEL_VERBOSE," Country code : %s   ",value);
-			LOG(LOG_LEVEL_VERBOSE," Country code Num  : %d   ",temp.country_code);
+			}
 		}
 		column++;
 		value = strtok(NULL, ";");
@@ -697,6 +585,8 @@ void tree_operations(void)
 	clock_t t;
 	double time_taken;
 	char filename[100];
+
+	int i=0;
         do{
 		LOG(LOG_LEVEL_EMERGENCY,"\n\n\n ######################### Main Menu ################# :\n");
 		LOG(LOG_LEVEL_EMERGENCY," 1. Input CSV file 	  :\n");
@@ -794,7 +684,7 @@ void total_heap_memory_allocation()
 
 	size = tree_node_cnt * sizeof(de_tree_node_t);
 	LOG(LOG_LEVEL_EMERGENCY,"\n Total Tree Node : %u \n",tree_node_cnt);
-	LOG(LOG_LEVEL_EMERGENCY,"\n Tree Node size (Bytes) : %lu \n",sizeof(de_tree_node_t));
+	LOG(LOG_LEVEL_EMERGENCY,"\n Tree Node size (Bytes) : %d \n",sizeof(de_tree_node_t));
 	if( size != 0 )
 	{
 		size = ( size / 1024 ) / 1024 ;
@@ -803,7 +693,7 @@ void total_heap_memory_allocation()
 
 	size = linked_list_cnt * sizeof(de_data_record_list_t);
 	LOG(LOG_LEVEL_EMERGENCY,"\n Total Linked List : %u \n",linked_list_cnt);
-	LOG(LOG_LEVEL_EMERGENCY,"\n Linked List Size (Bytes): %lu \n",sizeof(de_data_record_list_t));
+	LOG(LOG_LEVEL_EMERGENCY,"\n Linked List Size (Bytes): %d \n",sizeof(de_data_record_list_t));
 	if( size != 0 )
 	{
 		size = ( size / 1024 ) / 1024 ;
@@ -812,7 +702,7 @@ void total_heap_memory_allocation()
 
 	size = linked_list_node_cnt * sizeof(de_data_row_t);
 	LOG(LOG_LEVEL_EMERGENCY,"\n Total Linked List Nodes : %u \n",linked_list_node_cnt);	
-	LOG(LOG_LEVEL_EMERGENCY,"\n Linked List Node Size (Bytes) : %lu \n",sizeof(de_data_row_t));
+	LOG(LOG_LEVEL_EMERGENCY,"\n Linked List Node Size (Bytes) : %d \n",sizeof(de_data_row_t));
 	if( size != 0 )
         {
                 size = ( size / 1024 ) / 1024 ;
@@ -825,10 +715,8 @@ void total_heap_memory_allocation()
 }
 int main(void)
 {
-	 tree_operations();
-//	printf("List Node size %d Linked List Size %d TreeNode %d ",sizeof(de_data_row_t),sizeof(de_data_record_list_t),sizeof(de_tree_node_t));
-	//country_code_to_num();
-
+        tree_operations();
+	//printf("List Node size %d Linked List Size %d TreeNode %d ",sizeof(de_data_row_t),sizeof(de_data_record_list_t),sizeof(de_tree_node_t));
         return 0;
 }
 

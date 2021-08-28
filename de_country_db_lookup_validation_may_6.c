@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
 
 
 #define PREFIX_MATCH 1
@@ -25,11 +26,12 @@ typedef enum _bool {
    true = 1
 }Bool;
 
-
+FILE *debugFilefp = NULL;
 Bool LogOn = false;
 int log_level = 0;
 
-#define LOG(level, fmt, args...)\ 
+
+#define LOG(level, fmt, args...)\
 	do{\
 		if( (LogOn == false) && (level == 0))\
 			printf(fmt, ## args);\
@@ -68,6 +70,7 @@ static const char GeoIP_country_code[MAX_GEO_LOCS][3] = {
     "ZM","ME","ZW","A1","A2","O1","AX","GG","IM","JE",
     "BL","MF"
 };
+
 static const char * GeoIP_country_name[MAX_GEO_LOCS] = {
     "N/A", "Asia/Pacific Region", "Europe", "Andorra",
     "United Arab Emirates", "Afghanistan", "Antigua and Barbuda",
@@ -111,7 +114,7 @@ static const char * GeoIP_country_name[MAX_GEO_LOCS] = {
     "Montserrat", "Malta", "Mauritius", "Maldives", "Malawi",
     "Mexico", "Malaysia", "Mozambique", "Namibia", "New Caledonia",
     "Niger", "Norfolk Island", "Nigeria", "Nicaragua", "Netherlands",
-    "Norway", "Nepal", "Nauru", "Niue", "New Zealand", "Oman",
+ "Norway", "Nepal", "Nauru", "Niue", "New Zealand", "Oman",
     "Panama", "Peru", "French Polynesia", "Papua New Guinea",
     "Philippines", "Pakistan", "Poland", "Saint Pierre and Miquelon",
   "Pitcairn Islands", "Puerto Rico", "Palestinian Territory", "Portugal",
@@ -139,14 +142,16 @@ static const char * GeoIP_country_name[MAX_GEO_LOCS] = {
 
 short country_code_to_num(char *code)
 {
-	for(int i=1;i<MAX_GEO_LOCS;i++)
-	{
-		//printf("\n Country Code %s",GeoIP_country_code[i]);
-		if(strncasecmp(GeoIP_country_code[i],code,3)== 0)
-				return i;
-	}
-	return -1;
+        for(int i=1;i<MAX_GEO_LOCS;i++)
+        {
+                //printf("\n Country Code %s",GeoIP_country_code[i]);
+                if(strncasecmp(GeoIP_country_code[i],code,3)== 0)
+                                return i;
+        }
+        return -1;
 }
+
+
 void set_loglevel(int level)
 {
 	if ( (level >=LOG_LEVEL_EMERGENCY ) && (level <=LOG_LEVEL_DEBUG2 ))
@@ -173,17 +178,6 @@ void turnlogoff()
 {
 	LogOn = false;
 }
-
-/*enum _bool {
-   false = 0,
-   true = 1
-};
-
-typedef enum _bool Bool;*/
-
-Bool debug=false;
-Bool debug2=false;
-Bool debug3=false;
 
 void total_heap_memory_allocation();
 
@@ -287,7 +281,7 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 {
 	de_data_row_t *tmpPtr=NULL;
 	de_data_row_t *newNode=NULL;
-	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u \t End_IP: %u \t Country Code %d\n",__FUNCTION__,record.start_ip,record.end_ip,record.country_code); 
+	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u \t End_IP: %u \t Country Name: %s \n",__FUNCTION__,record.start_ip,record.end_ip,GeoIP_country_name[record.country_code]); 
 	if(node->DR_List == NULL)
 	{
 		node->DR_List=newDRList();	
@@ -299,10 +293,10 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 		node->DR_List->total_no_of_node++;
 		
 		newNode=newDataRCNode();
-		newNode->start_ip = record.start_ip;
-		newNode->end_ip = record.end_ip;
+		newNode->start_ip=record.start_ip;
+		newNode->end_ip=record.end_ip;
 		newNode->country_code = record.country_code;
-	//	strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
+		//strncpy(newNode->three_letter_cn_name,record.three_letter_cn_name,3);
 		node->DR_List->head=newNode;
 		node->DR_List->tail=newNode;
 	}
@@ -333,6 +327,22 @@ de_tree_node_t *insert_de_record_node(de_tree_node_t *node,unsigned int prefix_l
 	return node;
 }
 
+int common_seq_length(unsigned int start_ip, unsigned int end_ip)
+{
+
+        int depth=0;
+        int common_seq_len=0;
+        for (depth = 31; depth >= 0; depth--)
+        {
+                if ( ( start_ip  & (1 << depth)) == ( end_ip  & (1 << depth)) )
+                        common_seq_len ++;
+                else
+                        break;
+        }
+	return common_seq_len;
+}
+
+
 de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 {
 	int depth=0;
@@ -341,14 +351,18 @@ de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 	int prefix_len=0;
 	int last_prefix_len=0;
 	unsigned int ipnum=record.start_ip;
-	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u End_IP: %u Country Code : %d\n",__FUNCTION__,record.start_ip,record.end_ip,record.country_code);
+	unsigned int start_ipnum=record.start_ip;
+        unsigned int end_ipnum=record.end_ip;
+	int common_seq_len= common_seq_length(start_ipnum,end_ipnum);
+
+	LOG(LOG_LEVEL_DEBUG,"\n In %s : Start_IP: %u End_IP: %u Country Name: %s \n",__FUNCTION__,record.start_ip,record.end_ip,GeoIP_country_name[record.country_code]);
 	if(!root)
 	{
-		LOG(LOG_LEVEL_EMERGENCY,"root is not avialable , allocating root tree node \n");
+		LOG(LOG_LEVEL_EMERGENCY,"\n root is not avialable , allocating root tree node \n");
 		root=alloc_tree_root_node();			
 	}
 	ptr=root;
-	for (depth = 31; depth >= 0; depth--)
+	for (depth = 31; depth >= ( 32 - common_seq_len ); depth--)
 	{	
 		if (ipnum & (1 << depth))
 	 	{
@@ -361,8 +375,6 @@ de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 				ptr->right=insertTreeNode(1);
 				ptr=ptr->right;
 			}
-			last_one_ref=ptr;
-			last_prefix_len=prefix_len;
 	 	}
 	 	else
 	 	{
@@ -380,30 +392,41 @@ de_tree_node_t *insertIP(de_tree_node_t *root,de_data_row_t record)
 		prefix_len++;	
 	}
 	/*Insert Node Record */
-	last_one_ref->node_marker = PREFIX_MATCH;
-	last_one_ref=insert_de_record_node(last_one_ref,prefix_len,record);	
+	ptr->node_marker = PREFIX_MATCH;
+	ptr=insert_de_record_node(ptr,prefix_len,record);	
 	return root;
 }
-void searchRecord(de_tree_node_t *node,unsigned int ipnum)
+Bool searchRecord(de_tree_node_t *node,de_data_row_t srchNode,unsigned int ipnum)
 {
 	int count=1;
 	de_data_row_t *tmpPtr=NULL;
 	Bool found=false;
 	if(node->node_marker == PREFIX_MATCH)
 	{
-                //if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL){}
+                if(node != NULL && node->DR_List != NULL && node->DR_List->head !=NULL){}
        		{
 			LOG(LOG_LEVEL_INFO,"\n In %s : DR list node count is %u \n",__FUNCTION__,node->DR_List->total_no_of_node);
                         tmpPtr=node->DR_List->head;
                         while(tmpPtr)
-			{
-				if(ipnum>=tmpPtr->start_ip && ipnum<=tmpPtr->end_ip)
+			{	
+				
+                                LOG(LOG_LEVEL_VERBOSE,"\n In %s : Prefix Match while start loop \n",__func__);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Start ip : %u ",count,tmpPtr->start_ip);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  End ip : %u ",count,tmpPtr->end_ip);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Country Code (Num): %u ",count,tmpPtr->country_code);
+                                LOG(LOG_LEVEL_VERBOSE,"\n Node %d :  Three letter country code : %s, Country Full Name : %s  ",count,             GeoIP_country_code[tmpPtr->country_code],GeoIP_country_name[tmpPtr->country_code]);
+                                LOG(LOG_LEVEL_VERBOSE,"\n In %s : Prefix Match while start end \n",__func__);
+	
+				
+				if( (ipnum>=tmpPtr->start_ip && ipnum<=tmpPtr->end_ip) && (tmpPtr->end_ip == srchNode.end_ip) && (tmpPtr->country_code == srchNode.country_code))
 				{
+#if 0 
                        			LOG(LOG_LEVEL_EMERGENCY,"\n######## In %s : Record Values Are #######\n",__FUNCTION__);
-                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Start ip : %u ",count,tmpPtr->start_ip);
-                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  End ip : %u ",count,tmpPtr->end_ip);
+                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Start ip : %u %u",count,tmpPtr->start_ip,srchNode.start_ip);
+                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  End ip : %u %u",count,tmpPtr->end_ip,srchNode.end_ip);
 					LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Country Code (Num): %u ",count,tmpPtr->country_code);
-                        		LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Three letter country code : %s, Country Full Name : %s  ",count,GeoIP_country_code[tmpPtr->country_code],GeoIP_country_name[tmpPtr->country_code]);
+                                        LOG(LOG_LEVEL_EMERGENCY,"\n Node %d :  Three letter country code : %s, Country Full Name : %s  ",count,   GeoIP_country_code[tmpPtr->country_code],GeoIP_country_name[tmpPtr->country_code]);
+#endif 
 						found=true;
 						break;
 				}
@@ -413,18 +436,18 @@ void searchRecord(de_tree_node_t *node,unsigned int ipnum)
                 }
 
 	}
-	if(found == false )
-		LOG(LOG_LEVEL_EMERGENCY,"In %s : Record does not exist ",__FUNCTION__);	
+	return found;
 }
-void searchIP(de_tree_node_t *root,unsigned int ipnum)
+Bool searchIP(de_tree_node_t *root,de_data_row_t srchNode,unsigned int ipnumtmp)
 {
 	int depth=0;
         de_tree_node_t *ptr=NULL;
-        de_tree_node_t *last_one_ref=NULL;
+	Bool found=false;
+	unsigned int ipnum = srchNode.start_ip;
         if(!root)
         {
                 LOG(LOG_LEVEL_EMERGENCY,"In %s : root is not avialable, Exiting ....\n",__FUNCTION__);
-		return ;
+		return false;
 		
         }
         ptr=root;
@@ -436,10 +459,15 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
                 	{
                         	if(ptr->right)
                         	{
+					LOG(LOG_LEVEL_VERBOSE,"In %s : Right Branch %d\n",__func__,depth);
                                 	ptr=ptr->right;
 					if(ptr->node_marker == PREFIX_MATCH)
 					{
-                        			last_one_ref=ptr;
+						LOG(LOG_LEVEL_VERBOSE,"In %s : Prefix match tree depth (%d) found %d\n",__func__,depth,   found);
+                                                found = searchRecord(ptr,srchNode,ipnum);
+                                                if(true == found)
+                                                        break;
+
 					}
 				}
                 	}
@@ -447,6 +475,7 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
                 	{
                         	if(ptr->left)
                         	{
+					LOG(LOG_LEVEL_VERBOSE,"In %s : Left Branch %d\n",__func__,depth);
                                 	ptr=ptr->left;
                         	}
 
@@ -459,12 +488,9 @@ void searchIP(de_tree_node_t *root,unsigned int ipnum)
 			
 		}
         }
-	/* Now search through DR record list */
-	if(last_one_ref)
-		searchRecord(last_one_ref,ipnum);
-	else
-		LOG(LOG_LEVEL_EMERGENCY,"In %s : reference was not found....\n",__FUNCTION__);
-		
+	return found;
+/*	if(found == false )
+        	LOG(LOG_LEVEL_EMERGENCY,"In %s : reference was not found....\n",__FUNCTION__);*/	
 }
 
 int tree_size(de_tree_node_t *root)
@@ -547,13 +573,13 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 	    row++;
 	    char* value = strtok(buffer, ";");
 	    flagInsert=true;
-	    LOG(LOG_LEVEL_VERBOSE,"\nRow :- %u  ",row);
+	    LOG(LOG_LEVEL_VERBOSE,"Row :- %u  ",row);
 	    while (value) 
 	    {
 		if(column == 0)
 		{
 			temp.start_ip=atoi(value);
-			LOG(LOG_LEVEL_VERBOSE," Start_IP : %u  ",temp.start_ip);
+			LOG(LOG_LEVEL_VERBOSE,"Start_IP : %u  ",temp.start_ip);
 			if(temp.start_ip == 0)
 			{
 				flagInsert=false;
@@ -563,7 +589,7 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 		if(column == 1)
 		{
 			temp.end_ip=atoi(value);
-			LOG(LOG_LEVEL_VERBOSE," End IP : %u   ",temp.end_ip);
+			LOG(LOG_LEVEL_VERBOSE,"End IP : %u   ",temp.end_ip);
 			if(temp.end_ip == 0)
 			{
 				flagInsert=false;
@@ -572,22 +598,21 @@ de_tree_node_t *build_ds_by_reading_csv(de_tree_node_t *root,const char *filenam
 		}
 		if(column == 2)
 		{
-			//strncpy(temp.three_letter_cn_name,value,sizeof(value));
-			//LOG(LOG_LEVEL_VERBOSE,"Country code : %s   ",value);
-			temp.country_code = country_code_to_num (value);
-		/*	if(temp.country_code == -1)
+			/*strncpy(temp.three_letter_cn_name,value,sizeof(value));
+			LOG(LOG_LEVEL_VERBOSE,"Country code : %s   ",temp.three_letter_cn_name);
+			if(temp.three_letter_cn_name == 0)
 			{
 				flagInsert=false;
 				break;
 			}*/
+			temp.country_code = country_code_to_num (value);
 			LOG(LOG_LEVEL_VERBOSE," Country code : %s   ",value);
-			LOG(LOG_LEVEL_VERBOSE," Country code Num  : %d   ",temp.country_code);
+                        LOG(LOG_LEVEL_VERBOSE," Country code Num  : %d   ",temp.country_code);
 		}
 		column++;
 		value = strtok(NULL, ";");
 	    }
-	    if(debug2 == true )
-	    	printf("\n");
+	    LOG(LOG_LEVEL_VERBOSE,"\n");
 	    if( flagInsert == true )
 	    {
 	    	root=insertIP(root,temp);
@@ -690,102 +715,6 @@ void log_menu()
 		}
 	}while(1);
 }
-void tree_operations(void)
-{
-        int ch=0;
-	unsigned int ipnum=0;
-	clock_t t;
-	double time_taken;
-	char filename[100];
-        do{
-		LOG(LOG_LEVEL_EMERGENCY,"\n\n\n ######################### Main Menu ################# :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 1. Input CSV file 	  :\n");
-                LOG(LOG_LEVEL_EMERGENCY," 2. Search a IP Record    :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 3. Size of tree          :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 4. Print root-leaf path  :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 5. Tree Height 	  :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 6. Total Heap Memory     :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 7. Deleting DE DS        :\n");
-		LOG(LOG_LEVEL_EMERGENCY," 8. Log Config            :\n");
-                LOG(LOG_LEVEL_EMERGENCY," 9. Exit                  :\n");
-                LOG(LOG_LEVEL_EMERGENCY,"Enter the option          : ");
-                scanf("%d",&ch);
-                switch(ch)
-                {
-			case 1: printf("--------- Insert using CSV file ---------------\n");
-                                LOG(LOG_LEVEL_EMERGENCY,"Enter a CSV file name or full path of CSV file :");
-                                scanf("%s",filename);
-				t = clock();
-				if(root == NULL)
-				{
-                                	root=build_ds_by_reading_csv(root,filename);
-					t = clock() - t;
-					time_taken = ((double)t)/CLOCKS_PER_SEC;
-					LOG(LOG_LEVEL_EMERGENCY,"\n read_csv_and_build_ds() took %f seconds to execute \n", time_taken);
-					total_heap_memory_allocation();
-				}
-				else
-				{
-					LOG(LOG_LEVEL_EMERGENCY,"In %s : Root is not empty , first delete the existing tree then create one",__FUNCTION__);
-				}
-                                break;
-
-                        case 2: printf("--------- Searching a node ---------------\n");
-				LOG(LOG_LEVEL_EMERGENCY,"\n Enter the IP to be search :");
-				scanf("%u",&ipnum);
-				t = clock();
-				searchIP(root,ipnum);
-				t = clock() - t;
-				time_taken = ((double)t)/CLOCKS_PER_SEC;
-				LOG(LOG_LEVEL_EMERGENCY,"\nsearchIP() took %f seconds to execute \n", time_taken);
-                                break;
-			case 3: printf("--------- Tree Size ---------------\n");
-				LOG(LOG_LEVEL_EMERGENCY,"Size of tree is %d\n",tree_size(root));
-				break;
-			case 4: LOG(LOG_LEVEL_EMERGENCY,"--------- Root to leaf node Path print  ---------------\n");
-				if(root)
-					printPaths(root);
-				else
-					LOG(LOG_LEVEL_EMERGENCY,"Root is NULL\n");
-				break;
-			case 5: LOG(LOG_LEVEL_EMERGENCY,"--------- Tree Height---------------\n");
-				LOG(LOG_LEVEL_EMERGENCY,"Height of tree is %d\n",tree_height(root));
-				break;
-			case 6: LOG(LOG_LEVEL_EMERGENCY,"---------- Total Heap Memory ------");
-				total_heap_memory_allocation();
-				break;
-			case 7: LOG(LOG_LEVEL_EMERGENCY,"--------------- Deleting DE Data Structure --------\n");
-				root=delete_tree_ds(root);
-				if(root == NULL)
-				{
-                                        LOG(LOG_LEVEL_EMERGENCY,"\n Successfully deleted the tree DS \n");
-				}
-                                else
-				{	
-					root = NULL;
-                                        LOG(LOG_LEVEL_EMERGENCY,"\n Error in deletion in tree DS \n");
-				}
-				break;
-			case 8:	log_menu(); 
-				break;
-                        case 9: LOG(LOG_LEVEL_EMERGENCY,"--------- Exiting ---------------\n");
-				root=delete_tree_ds(root);
-				if(root == NULL )
-				{
-					LOG(LOG_LEVEL_EMERGENCY,"\n Successfully deleted the tree DS \n");
-				}
-				else
-				{
-					LOG(LOG_LEVEL_EMERGENCY,"\n Error in deletion in tree DS \n");
-					root = NULL;	
-				}
-                                exit(0);
-                        default :
-                                LOG(LOG_LEVEL_EMERGENCY,"!!!!! Invalid Option !!!!!\n");
-				break;
-                }
-        }while(1);
-}
 
 void total_heap_memory_allocation()
 {
@@ -820,15 +749,174 @@ void total_heap_memory_allocation()
 	}
 	
 	size = tree_node_cnt * sizeof(de_tree_node_t) + linked_list_cnt * sizeof(de_data_record_list_t) + linked_list_node_cnt * sizeof(de_data_row_t);
-	LOG(LOG_LEVEL_EMERGENCY,"\n Total DS Dyanamic memory allocation in Bytes\n",size);	
+	LOG(LOG_LEVEL_EMERGENCY,"\n Total DS Dyanamic memory allocation in Bytes (%llu)\n",size);	
 		
 }
-int main(void)
-{
-	 tree_operations();
-//	printf("List Node size %d Linked List Size %d TreeNode %d ",sizeof(de_data_row_t),sizeof(de_data_record_list_t),sizeof(de_tree_node_t));
-	//country_code_to_num();
 
-        return 0;
+de_tree_node_t *read_csv_and_search(de_tree_node_t *root,const char* filename)
+{
+    clock_t t;
+    double time_taken;
+    t = clock();
+    LOG(LOG_LEVEL_EMERGENCY,"\n Filename is %s",filename);
+    root = build_ds_by_reading_csv( root , filename);	
+
+    t = clock() - t;
+    time_taken = ((double)t)/CLOCKS_PER_SEC;
+    LOG(LOG_LEVEL_EMERGENCY,"\n build_ds_by_reading_csv() took %f seconds to execute \n", time_taken);
+	
+    FILE* fp = fopen(filename, "r");
+    unsigned int srchFndCnt = 0 , cumSrchFndCnt = 0;
+    unsigned int srchNotFndCnt = 0 , cumSrchNotFndCnt = 0;
+
+    if (!fp)
+    {
+	LOG(LOG_LEVEL_EMERGENCY,"IN %s: Can't open file\n",__func__);
+    }
+    else
+    {
+	char buffer[1024];
+	unsigned int row = 0;
+	int column = 0;
+	unsigned int start_ip=0;
+	de_data_row_t temp;
+	Bool result = false;
+	Bool flagSearch=true;
+	while (fgets(buffer,1024, fp))
+	{
+	    column = 0;
+	    row++;
+	    char* value = strtok(buffer, ";");
+	    flagSearch=true;
+	    LOG(LOG_LEVEL_VERBOSE,"Row :- %u  ",row);
+	    while (value)
+	    {
+		if(column == 0)
+		{
+		    temp.start_ip=atoi(value);
+		    LOG(LOG_LEVEL_VERBOSE,"Start_IP : %u  ",temp.start_ip);
+		    if(temp.start_ip == 0)
+		    {
+			flagSearch=false;
+			break;
+		    }
+		}
+		if(column == 1)
+		{
+		    temp.end_ip=atoi(value);
+		    LOG(LOG_LEVEL_VERBOSE,"End IP : %u   ",temp.end_ip);
+		    if(temp.end_ip == 0)
+		    {
+			flagSearch=false;
+			break;
+		    }
+		}
+		if(column == 2)
+		{
+		   /* strncpy(temp.three_letter_cn_name,value,sizeof(value));
+		    LOG(LOG_LEVEL_VERBOSE,"Country code : %s   ",temp.three_letter_cn_name);
+		    if(temp.three_letter_cn_name == 0)
+		    {
+			flagSearch=false;
+			break;
+		    }*/
+		    temp.country_code = country_code_to_num (value);
+		    LOG(LOG_LEVEL_VERBOSE," Country code : %s   ",value);
+                    LOG(LOG_LEVEL_VERBOSE," Country code Num  : %d   ",temp.country_code);
+		}
+		column++;
+		value = strtok(NULL, ";");
+	    }
+	    LOG(LOG_LEVEL_VERBOSE,"\n");
+	    if( flagSearch == true )
+	    {
+		srchNotFndCnt = 0;
+		srchFndCnt = 0;
+		t = clock();
+		//for( start_ip = temp.start_ip;start_ip<= temp.end_ip ; start_ip ++)
+		{
+			result=searchIP(root,temp,start_ip);
+			if( result == true )
+				srchFndCnt++;	
+			else
+			{
+				srchNotFndCnt++;
+				fprintf(debugFilefp," %u %u %u %s \n",start_ip,temp.start_ip,temp.end_ip,GeoIP_country_name[temp.country_code]);
+			}
+		}
+		t = clock() - t;
+		time_taken += ((double)t);
+	    }
+	    cumSrchFndCnt += srchFndCnt;
+	    cumSrchNotFndCnt += srchNotFndCnt;
+	    printf(".");
+	}
+	fclose(fp);
+    }
+    time_taken = ((double)time_taken)/CLOCKS_PER_SEC;
+    LOG(LOG_LEVEL_EMERGENCY,"\n searchIP() took %f seconds for whole csv serach\n", time_taken);
+    LOG(LOG_LEVEL_EMERGENCY,"\n Total Found IP %u ",cumSrchFndCnt);
+    LOG(LOG_LEVEL_EMERGENCY,"\n Total Not Found IP %u \n",cumSrchNotFndCnt);
+    return root;
+}
+void openDebugFile(void)
+{
+    debugFilefp = fopen("Not_Found_DE_Record.txt", "w");
+    if (!debugFilefp)
+    {
+        LOG(LOG_LEVEL_EMERGENCY,"IN %s: Can't open file Not_Found_DE_Record.txt \n",__func__);
+    }
+}
+
+void closeDebugFile(void)
+{
+	if(debugFilefp != NULL)
+	{
+		fclose(debugFilefp);
+		debugFilefp = NULL;
+		LOG(LOG_LEVEL_EMERGENCY,"IN %s: Successfully closed file Not_Found_DE_Record.txt \n",__func__);
+	}
+	else
+	{
+		LOG(LOG_LEVEL_EMERGENCY,"IN %s: File Not_Found_DE_Record.txt  alreay closed \n",__func__);
+		debugFilefp  = NULL;
+	}
+}
+//int main(int argc, char *argv[])
+int main(int argc, char **argv)
+{	
+	clock_t t;
+	double time_taken;
+		
+	
+	if( argc == 1)
+	{
+		LOG(LOG_LEVEL_EMERGENCY,"\n Enter filename for input \n");
+		return 0;
+	}
+	else if ( argc > 2 )
+	{
+		LOG(LOG_LEVEL_EMERGENCY,"\n Don't give more than one filename \n");
+		return 0;
+	}
+	else
+	{
+		LOG(LOG_LEVEL_EMERGENCY,"\n File Argument is %s ",argv[1]);
+		if( access( argv[1] , F_OK ) != 0 )
+		{
+			LOG(LOG_LEVEL_EMERGENCY,"\n File Does not exist \n");
+			return 0;
+		}		
+	}
+	openDebugFile();
+	t = clock();
+	root = read_csv_and_search(root,argv[1]);
+	t = clock() - t;
+	time_taken = ((double)t)/CLOCKS_PER_SEC;
+	LOG(LOG_LEVEL_EMERGENCY,"\n read_csv_and_search() took %f seconds to execute \n", time_taken);
+	total_heap_memory_allocation();
+	root = delete_tree_ds(root);
+	closeDebugFile();
+	return 0;
 }
 
